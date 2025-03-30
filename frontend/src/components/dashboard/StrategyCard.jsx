@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaArrowRight, FaShieldAlt, FaChartLine, FaExclamationTriangle } from 'react-icons/fa';
+import { FaArrowRight, FaShieldAlt, FaChartLine, FaExclamationTriangle, FaRobot } from 'react-icons/fa';
 import { useUserProfile } from '../../contexts/UserProfileContext';
 
 const StrategyCard = ({ marketData }) => {
