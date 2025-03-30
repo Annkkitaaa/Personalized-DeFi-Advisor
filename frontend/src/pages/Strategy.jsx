@@ -351,6 +351,7 @@ const Strategy = () => {
                 ))}
               </div>
             </div>
+        </motion.div>
           )}
         </div>
         

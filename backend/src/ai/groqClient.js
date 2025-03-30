@@ -1,18 +1,19 @@
+// Save this as: D:\projects\Personalized-DeFi-Advisor\backend\src\ai\groqClient.js
 const axios = require('axios');
 
-class GrokClient {
+class GroqClient {
   constructor(apiKey) {
     this.apiKey = apiKey;
-    this.baseURL = process.env.GROK_API_URL || 'https://api.grok.ai/v1';
+    this.baseURL = 'https://api.groq.com/openai/v1';
   }
 
   async generateAdvice(prompt) {
     try {
-      // Try to use the Grok API if available
+      // Use Groq's API which follows OpenAI's format
       const response = await axios.post(
         `${this.baseURL}/chat/completions`,
         {
-          model: 'grok-1', // Use appropriate model name
+          model: 'llama3-70b-8192', // Use Groq's LLama3 model
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.7,
           max_tokens: 1500
@@ -27,9 +28,9 @@ class GrokClient {
       
       return response.data.choices[0].message.content;
     } catch (error) {
-      console.error('Error calling Grok API:', error);
+      console.error('Error calling Groq API:', error);
       
-      // If Grok API is not available, fallback to template-based advice
+      // If Groq API is not available, fallback to template-based advice
       return this._generateFallbackAdvice(prompt);
     }
   }
@@ -272,4 +273,4 @@ Use aggregators to reduce transaction count, consider moving to L2s for better g
   }
 }
 
-module.exports = new GrokClient(process.env.GROK_API_KEY);
+module.exports = new GroqClient(process.env.GROQ_API_KEY);

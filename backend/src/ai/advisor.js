@@ -1,4 +1,4 @@
-const grokClient = require('./grokClient');
+const groqClient = require('./groqClient'); // Changed from grokClient to groqClient
 const { createStrategyPrompt } = require('./prompts');
 const ethClient = require('../blockchain/ethClient');
 const { formatStrategyResponse } = require('../utils/formatter');
@@ -57,8 +57,8 @@ class DefiAdvisor {
         recommendations
       );
       
-      // Get advice from AI
-      const rawAdvice = await grokClient.generateAdvice(prompt);
+      // Get advice from AI - changed from grokClient to groqClient
+      const rawAdvice = await groqClient.generateAdvice(prompt);
       
       // Format and structure the response
       return formatStrategyResponse(rawAdvice, {
