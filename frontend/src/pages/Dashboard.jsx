@@ -8,6 +8,9 @@ import { getMarketData, getWalletData } from '../services/api';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import ProtocolMetrics from '../components/dashboard/ProtocolMetrics';
+import GasTracker from '../components/dashboard/GasTracker';
+
+
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -229,6 +232,9 @@ const Dashboard = () => {
               <p className="text-gray-400">No protocol data available</p>
             )}
           </div>
+
+          {/* Gas Tracker */}
+          <GasTracker initialGasPrice={marketData?.gasPrice} />
           
           {/* Wallet Overview */}
           <div className="card col-span-1">

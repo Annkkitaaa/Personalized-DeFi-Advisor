@@ -11,10 +11,21 @@ const api = axios.create({
 
 export const getAdvice = async (profileData, walletAddress) => {
   try {
-    const response = await api.post('/advice', {
-      ...profileData,
+    // Ensure we send the correct data format
+    const requestData = {
+      riskTolerance: profileData.riskTolerance,
+      timeHorizon: profileData.timeHorizon,
+      capital: profileData.capital,
+      experience: profileData.experience,
       walletAddress
-    });
+    };
+    
+    const response = await api.post('/advice', requestData);
+    
+    if (!response.data || !response.data.success) {
+      throw new Error(response.data?.error || 'Invalid response from server');
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching advice:', error);
@@ -25,6 +36,11 @@ export const getAdvice = async (profileData, walletAddress) => {
 export const getMarketData = async () => {
   try {
     const response = await api.get('/market');
+    
+    if (!response.data || !response.data.success) {
+      throw new Error(response.data?.error || 'Invalid response from server');
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching market data:', error);
@@ -33,14 +49,24 @@ export const getMarketData = async () => {
 };
 
 export const getWalletData = async (address) => {
+  if (!address) {
+    throw new Error('Wallet address is required');
+  }
+  
   try {
     const response = await api.get(`/wallet/${address}`);
+    
+    if (!response.data || !response.data.success) {
+      throw new Error(response.data?.error || 'Invalid response from server');
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching wallet data:', error);
     throw error;
   }
 };
+
 
 export const simulateOperation = async (type, params) => {
   try {
