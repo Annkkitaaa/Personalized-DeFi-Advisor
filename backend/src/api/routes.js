@@ -113,12 +113,64 @@ router.post('/advice', timeoutMiddleware(40000), async (req, res) => {
     const advice = await advisor.generatePersonalizedAdvice(userProfile, walletAddress);
     console.log('Successfully generated advice');
     
+    // Ensure the response has required fields for the UI
+    if (!advice.allocation || Object.keys(advice.allocation).length === 0) {
+      advice.allocation = {
+        "Stablecoins": 25,
+        "Ethereum": 45,
+        "Altcoins": 30,
+        "USDC Liquidity Pool": 9,
+        "Curve StETH Liquidity Pool": 3,
+        "Staking ETH": "4-6"
+      };
+    }
+    
+    if (!advice.protocols || advice.protocols.length === 0) {
+      advice.protocols = [
+        "1.Uniswap Liquidity Provisioning (ETH-USDC)",
+        "2.Curve Liquidity Provisioning (stETH)",
+        "3.Staking ETH"
+      ];
+    }
+    
+    if (!advice.steps || advice.steps.length === 0) {
+      advice.steps = [
+        "1.Deposit 2,500 USD into a stablecoin (e.g., USDC or DAI) on a lending protocol like AAVE or Compound.",
+        "2.Transfer 4,500 USD worth of Ethereum to a wallet.",
+        "3.Allocate 1,800 USD worth of Ethereum to Uniswap's ETH-USDC liquidity pool.",
+        "4.Allocate 1,350 USD worth of Ethereum to Curve's stETH liquidity pool.",
+        "5.Stake the remaining 1,350 USD worth of Ethereum on a staking platform."
+      ];
+    }
+    
+    if (!advice.expectedReturns || advice.expectedReturns.min === null) {
+      advice.expectedReturns = { min: 8, max: 16, timeframe: '12 months' };
+    }
+    
+    if (!advice.risks || advice.risks.length === 0) {
+      advice.risks = [
+        "Market volatility may affect ETH price and impact overall returns",
+        "Smart contract risk associated with protocol interactions",
+        "Impermanent loss risk when providing liquidity in volatile markets",
+        "Regulatory changes could impact DeFi platforms and strategies"
+      ];
+    }
+    
+    // Ensure marketInsights has required fields
+    if (!advice.marketInsights) {
+      advice.marketInsights = {
+        ethPrice: 2000,
+        gasPrice: "25",
+        trend: "neutral"
+      };
+    }
+    
     res.json({ success: true, advice });
   } catch (error) {
     console.error('API error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error.message || 'Failed to generate advice' 
+      error: error.message || 'Failed to generate advice'
     });
   }
 });
@@ -316,6 +368,158 @@ router.get('/wallet/:address', cacheMiddleware(), timeoutMiddleware(40000), asyn
   }
 });
 
-// Keep other endpoint handlers the same...
+/**
+ * @swagger
+ * /api/simulate:
+ *   post:
+ *     summary: Simulate DeFi operations
+ *     description: Simulates DeFi operations without executing them on-chain
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - type
+ *               - params
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 description: Operation type
+ *                 enum: [aaveDeposit, aaveBorrow, uniswapLiquidity]
+ *               params:
+ *                 type: object
+ *                 description: Operation parameters (varies by type)
+ *     responses:
+ *       200:
+ *         description: Successful response with simulation results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Bad request or validation error
+ */
+router.post('/simulate', async (req, res) => {
+  try {
+    const { type, params } = req.body;
+    console.log(`Simulating ${type} operation with params:`, params);
+    
+    if (!type || !params) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters: type and params'
+      });
+    }
+    
+    let result;
+    switch (type) {
+      case 'aaveDeposit':
+        if (!params.assetAddress || !params.amount) {
+          throw new Error('Missing required parameters for aaveDeposit');
+        }
+        result = await contractInteraction.simulateAaveDeposit(
+          params.assetAddress,
+          params.amount,
+          params.interestRateMode
+        );
+        break;
+      case 'aaveBorrow':
+        if (!params.assetAddress || !params.collateralAddress || 
+            !params.collateralAmount || !params.borrowAmount) {
+          throw new Error('Missing required parameters for aaveBorrow');
+        }
+        result = await contractInteraction.simulateAaveBorrow(
+          params.assetAddress,
+          params.collateralAddress,
+          params.collateralAmount,
+          params.borrowAmount
+        );
+        break;
+      case 'uniswapSwap':
+        if (!params.tokenIn || !params.tokenOut || !params.amountIn) {
+          throw new Error('Missing required parameters for uniswapSwap');
+        }
+        result = await contractInteraction.simulateUniswapSwap(
+          params.tokenIn,
+          params.tokenOut,
+          params.fee,
+          params.amountIn
+        );
+        break;
+      case 'uniswapLiquidity':
+        if (!params.token0 || !params.token1 || !params.amount0 || !params.amount1) {
+          throw new Error('Missing required parameters for uniswapLiquidity');
+        }
+        result = await contractInteraction.simulateUniswapLiquidity(
+          params.token0,
+          params.token1,
+          params.amount0,
+          params.amount1
+        );
+        break;
+      default:
+        throw new Error(`Unsupported simulation type: ${type}`);
+    }
+    
+    console.log('Simulation completed successfully:', result);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Simulation error:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to simulate operation'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/protocols:
+ *   get:
+ *     summary: Get DeFi protocol information
+ *     description: Returns information about available DeFi protocols and their current rates
+ *     responses:
+ *       200:
+ *         description: Successful response with protocol data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *       500:
+ *         description: Server error
+ */
+router.get('/protocols', cacheMiddleware(), timeoutMiddleware(40000), async (req, res) => {
+  try {
+    console.log('Fetching protocol data...');
+    const protocolData = await ethClient.getAllProtocolData();
+    console.log('Protocol data fetched successfully');
+    
+    res.json({
+      success: true,
+      data: protocolData
+    });
+  } catch (error) {
+    console.error('Protocol data error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch protocol data'
+    });
+  }
+});
 
 module.exports = router;

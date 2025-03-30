@@ -1,6 +1,5 @@
 // frontend/src/components/strategy/ProtocolsSection.jsx
 import React from 'react';
-import { FaEthereum } from 'react-icons/fa';
 
 const ProtocolsSection = ({ protocols, steps }) => {
   // Check if we have real data
@@ -12,69 +11,114 @@ const ProtocolsSection = ({ protocols, steps }) => {
     );
   }
 
-  // Clean protocol names by removing special characters
-  const cleanProtocolList = Array.isArray(protocols) 
-    ? protocols.map(p => typeof p === 'string' ? p.replace(/[\*"]/g, '').trim() : '')
-      .filter(p => p.length > 0)
-    : [];
-  
-  // Extract implementation steps related to protocols
-  const protocolSteps = Array.isArray(steps) 
-    ? steps.filter(step => typeof step === 'string' && step.length > 0)
-    : [];
-
-  // Get the appropriate icon for each protocol
-  const getProtocolIcon = (protocol) => {
-    const lowerProtocol = protocol.toLowerCase();
-    if (lowerProtocol.includes('aave')) {
-      return <div className="text-lg font-bold text-cyber-blue">Aa</div>;
-    } else if (lowerProtocol.includes('compound')) {
-      return <div className="text-lg font-bold text-cyber-blue">Co</div>;
-    } else if (lowerProtocol.includes('uniswap')) {
-      return <div className="text-lg font-bold text-cyber-pink">🦄</div>;
-    } else if (lowerProtocol.includes('curve')) {
-      return <div className="text-lg font-bold text-cyber-yellow">Cv</div>;
-    } else if (lowerProtocol.includes('eth') || lowerProtocol.includes('staking')) {
-      return <FaEthereum className="text-cyber-blue" />;
-    }
-    return <FaEthereum className="text-cyber-blue" />;
+  // Get protocol icon
+  const getProtocolIcon = (name) => {
+    if (!name) return null;
+    
+    const lcName = name.toLowerCase();
+    if (lcName.includes('aave')) return <div className="text-4xl">Aa</div>;
+    if (lcName.includes('uniswap')) return <div className="text-4xl">🦄</div>;
+    if (lcName.includes('curve')) return <div className="text-2xl font-bold">Cv</div>;
+    if (lcName.includes('compound')) return <div className="text-2xl font-bold">Co</div>;
+    if (lcName.includes('staking') || lcName.includes('eth')) return <div className="text-2xl">Ξ</div>;
+    return <div className="text-2xl font-bold">⟠</div>;
   };
 
-  return (
-    <div className="w-full">
-      {/* Protocol list */}
-      {cleanProtocolList.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {cleanProtocolList.map((protocol, index) => (
-            <div 
-              key={index}
-              className="glass-panel p-4 flex flex-col items-center text-center"
-            >
-              <div className="w-12 h-12 rounded-full bg-card-bg border border-cyber-purple flex items-center justify-center mb-2">
-                {getProtocolIcon(protocol)}
-              </div>
-              <span className="text-sm">{protocol}</span>
-            </div>
-          ))}
-        </div>
-      )}
+  // Group protocols and related implementation steps
+  const getGroupedProtocols = () => {
+    const protocolGroups = [];
+    
+    // Extract protocol names and details
+    if (protocols && protocols.length > 0) {
+      protocols.forEach(protocol => {
+        if (typeof protocol === 'string' && protocol.trim()) {
+          // Handle numbered protocol list (like "1.Uniswap Liquidity")
+          let name = protocol.trim();
+          let description = '';
+          
+          // Check if protocol has numbering (1. Protocol Name)
+          const numberMatch = name.match(/^(\d+)\.?(.*)/);
+          if (numberMatch) {
+            name = numberMatch[2].trim();
+          }
+          
+          // Add protocol
+          protocolGroups.push({
+            name,
+            description,
+            steps: []
+          });
+        }
+      });
+    }
+    
+    // Match implementation steps with protocols
+    if (steps && steps.length > 0) {
+      steps.forEach(step => {
+        if (typeof step === 'string' && step.trim()) {
+          let stepText = step.trim();
+          
+          // Find matching protocol for this step
+          for (const protocol of protocolGroups) {
+            if (stepText.toLowerCase().includes(protocol.name.toLowerCase())) {
+              protocol.steps.push(stepText);
+              return;
+            }
+          }
+          
+          // If no match found, add to general implementation steps
+          const generalImplementation = protocolGroups.find(p => 
+            p.name.toLowerCase().includes('implementation') || 
+            p.name.toLowerCase().includes('instruction')
+          );
+          
+          if (generalImplementation) {
+            generalImplementation.steps.push(stepText);
+          } else {
+            // Create a new protocol group for implementation steps
+            protocolGroups.push({
+              name: 'Implementation Instructions',
+              description: '',
+              steps: [stepText]
+            });
+          }
+        }
+      });
+    }
+    
+    return protocolGroups;
+  };
 
-      {/* Protocol steps */}
-      {protocolSteps.length > 0 && (
-        <div className="glass-panel p-4">
-          <h3 className="font-cyber text-md mb-4">Implementation Strategy</h3>
-          <div className="space-y-3">
-            {protocolSteps.map((step, index) => (
-              <div key={index} className="flex items-start">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-cyber-purple flex items-center justify-center mr-3 mt-0.5">
-                  <span className="text-white text-xs">{index + 1}</span>
-                </div>
-                <p className="text-gray-300">{step}</p>
-              </div>
-            ))}
+  const protocolGroups = getGroupedProtocols();
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {protocolGroups.map((protocol, index) => (
+        <div key={index} className="glass-panel p-4 flex flex-col h-full">
+          <div className="flex items-center mb-3">
+            <div className="w-12 h-12 rounded-full bg-card-bg border border-cyber-purple flex items-center justify-center mr-3">
+              {getProtocolIcon(protocol.name)}
+            </div>
+            <h3 className="font-cyber text-lg">{protocol.name}</h3>
           </div>
+          
+          {protocol.description && (
+            <p className="text-gray-300 mb-3 text-sm">{protocol.description}</p>
+          )}
+          
+          {protocol.steps.length > 0 && (
+            <div className="mt-auto">
+              <div className="space-y-2">
+                {protocol.steps.map((step, stepIdx) => (
+                  <div key={stepIdx} className="text-sm text-gray-300">
+                    {step}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
   );
 };

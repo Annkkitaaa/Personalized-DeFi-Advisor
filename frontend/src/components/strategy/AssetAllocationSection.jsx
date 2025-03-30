@@ -14,32 +14,65 @@ const AssetAllocationSection = ({ allocation }) => {
   // Get color based on asset type
   const getAssetColor = (asset) => {
     const assetLower = asset.toLowerCase();
-    if (assetLower.includes('stable') || assetLower.includes('usdc') || assetLower.includes('dai') || assetLower.includes('usdt')) {
-      return 'from-cyan-500 to-cyan-400';
-    } else if (assetLower.includes('eth') || assetLower.includes('ethereum')) {
-      return 'from-yellow-500 to-yellow-400';
-    } else if (assetLower.includes('alt') || assetLower.includes('btc') || assetLower.includes('bitcoin')) {
-      return 'from-pink-500 to-pink-400';
+    if (assetLower.includes('stable') || assetLower.includes('usdc') || assetLower.includes('dai')) {
+      return 'bg-cyber-blue';
+    } else if (assetLower.includes('eth') || assetLower.includes('staking')) {
+      return 'bg-cyber-yellow';
+    } else if (assetLower.includes('alt') || assetLower.includes('liquidity')) {
+      return 'bg-cyber-pink';
     }
-    return 'from-purple-500 to-purple-400';
+    return 'bg-cyber-purple';
   };
 
   // Normalize percentage value for progress bar width
   const getNormalizedPercentage = (value) => {
+    // Check if the value is already a number
+    if (typeof value === 'number') {
+      return `${value}%`;
+    }
+    
+    // Convert percentage string to number
     if (typeof value === 'string') {
-      // Handle ranges like "30-40%"
+      // Handle ranges like "40-60%"
       if (value.includes('-')) {
         const [min, max] = value.replace(/%/g, '').split('-').map(v => parseInt(v.trim()));
-        return (min + max) / 2;
+        return `${(min + max) / 2}%`;
       }
-      // Handle percentages like "30%"
+      
+      // Extract number from string (handles "25%" or "25")
       const match = value.match(/(\d+)/);
-      return match ? parseInt(match[1]) : 50;
+      if (match) {
+        return `${match[1]}%`;
+      }
     }
+    
+    // Fallback for when we can't determine percentage
+    return '0%';
+  };
+  
+  // Format display value to ensure consistent presentation
+  const formatDisplayValue = (value) => {
     if (typeof value === 'number') {
-      return value;
+      return `${value}%`;
     }
-    return 50; // Default value if parsing fails
+    
+    if (typeof value === 'string') {
+      // Already has a % sign
+      if (value.includes('%')) {
+        return value;
+      }
+      // Is a range like "4-6"
+      if (value.includes('-')) {
+        return `${value}%`;
+      }
+      // Try to parse as a number
+      const match = value.match(/(\d+)/);
+      if (match) {
+        return `${match[1]}%`;
+      }
+    }
+    
+    return value;
   };
 
   return (
@@ -49,12 +82,12 @@ const AssetAllocationSection = ({ allocation }) => {
           <div key={asset} className="w-full">
             <div className="flex justify-between mb-1">
               <span className="text-white capitalize">{asset}</span>
-              <span className="text-cyber-blue">{percentage}</span>
+              <span className="text-cyber-blue">{formatDisplayValue(percentage)}</span>
             </div>
             <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
               <div 
-                className={`h-full rounded-full bg-gradient-to-r ${getAssetColor(asset)}`}
-                style={{ width: `${getNormalizedPercentage(percentage)}%` }}
+                className={`h-full rounded-full ${getAssetColor(asset)}`}
+                style={{ width: getNormalizedPercentage(percentage) }}
               ></div>
             </div>
           </div>

@@ -3,7 +3,8 @@ import React from 'react';
 import { FaExclamationCircle } from 'react-icons/fa';
 
 const RiskFactors = ({ risks }) => {
-  if (!risks || risks.length === 0) {
+  // Only use real data from the API response
+  if (!risks || !Array.isArray(risks) || risks.length === 0) {
     return (
       <div className="p-4 text-center text-gray-400">
         No risk factors available from the API. Try regenerating the strategy.

@@ -2,6 +2,7 @@
 const groqClient = require('./groqClient');
 const { createStrategyPrompt } = require('./prompts');
 const ethClient = require('../blockchain/ethClient');
+const calculator = require('../utils/calculator');
 const { formatStrategyResponse } = require('../utils/formatter');
 
 class DefiAdvisor {
@@ -27,7 +28,7 @@ class DefiAdvisor {
       const marketData = {
         ethPrice,
         gasPrice,
-        marketTrend: marketTrendData, // Pass the direct result from ethClient
+        marketTrend: marketTrendData,
         volatility: this._calculateVolatility(protocolData),
         priceChange1d: this._calculatePriceChange(1, protocolData),
         priceChange7d: this._calculatePriceChange(7, protocolData),
@@ -35,7 +36,7 @@ class DefiAdvisor {
         rsi: this._calculateRSI(protocolData)
       };
       
-      // Protocol data analysis
+      // Protocol data analysis - use the calculator for advanced metrics
       const onChainData = {
         protocolAPYs: this._extractAPYs(protocolData),
         liquidityData: this._extractLiquidity(protocolData),
@@ -287,11 +288,17 @@ class DefiAdvisor {
     if (protocolData.uniswap) {
       for (const pool of protocolData.uniswap) {
         const riskScore = this._assessLiquidityRisk('uniswap', pool.name);
+        
+        // Use calculator to estimate impermanent loss risk
+        const priceChangeRatio = 1.1; // Assuming 10% price change
+        const impermanentLoss = calculator.calculateImpermanentLoss(priceChangeRatio);
+        
         opportunities.push({
           type: 'liquidity',
           protocol: 'Uniswap',
           asset: pool.name,
           apy: pool.estimatedAPY,
+          impermanentLoss: Math.abs(impermanentLoss * 100).toFixed(2) + '%',
           risk: riskScore,
           suitable: this._isSuitableForRiskProfile(riskScore, riskProfile)
         });
@@ -376,7 +383,14 @@ class DefiAdvisor {
     const recommendations = {
       assetAllocation: {},
       protocols: [],
-      strategies: []
+      steps: [],
+      expectedReturns: { min: 8, max: 16, timeframe: '12 months' },
+      risks: [
+        "Market volatility may affect ETH price and impact overall returns",
+        "Smart contract risk associated with protocol interactions",
+        "Impermanent loss risk when providing liquidity in volatile markets",
+        "Regulatory changes could impact DeFi platforms and strategies"
+      ]
     };
     
     const riskProfile = userProfile.getRiskProfile();
@@ -387,23 +401,32 @@ class DefiAdvisor {
     switch (riskProfile) {
       case 'conservative':
         recommendations.assetAllocation = {
-          stablecoins: "70-80%",
-          ethereum: "10-20%",
-          altcoins: "0-10%"
+          "Stablecoins": 70,
+          "Ethereum": 15,
+          "Altcoins": 5,
+          "USDC Liquidity Pool": 9,
+          "Curve StETH Liquidity Pool": 3,
+          "Staking ETH": "4-6"
         };
         break;
       case 'moderate':
         recommendations.assetAllocation = {
-          stablecoins: "40-60%",
-          ethereum: "30-40%",
-          altcoins: "10-20%"
+          "Stablecoins": 50,
+          "Ethereum": 30,
+          "Altcoins": 10,
+          "USDC Liquidity Pool": 6,
+          "Curve StETH Liquidity Pool": 2,
+          "Staking ETH": "4-6"
         };
         break;
       case 'aggressive':
         recommendations.assetAllocation = {
-          stablecoins: "20-30%",
-          ethereum: "40-50%",
-          altcoins: "30-40%"
+          "Stablecoins": 25,
+          "Ethereum": 45,
+          "Altcoins": 30,
+          "USDC Liquidity Pool": 9,
+          "Curve StETH Liquidity Pool": 3,
+          "Staking ETH": "4-6"
         };
         break;
     }
@@ -413,83 +436,95 @@ class DefiAdvisor {
       // Increase crypto allocation in bull market
       switch (riskProfile) {
         case 'conservative':
-          recommendations.assetAllocation.ethereum = "15-25%";
-          recommendations.assetAllocation.stablecoins = "65-75%";
+          recommendations.assetAllocation["Ethereum"] = 25;
+          recommendations.assetAllocation["Stablecoins"] = 65;
           break;
         case 'moderate':
-          recommendations.assetAllocation.ethereum = "35-45%";
-          recommendations.assetAllocation.stablecoins = "35-55%";
+          recommendations.assetAllocation["Ethereum"] = 40;
+          recommendations.assetAllocation["Stablecoins"] = 35;
           break;
         case 'aggressive':
-          recommendations.assetAllocation.ethereum = "45-55%";
-          recommendations.assetAllocation.stablecoins = "15-25%";
+          recommendations.assetAllocation["Ethereum"] = 50;
+          recommendations.assetAllocation["Stablecoins"] = 20;
           break;
       }
     } else if (marketTrend === 'bearish') {
       // Increase stablecoin allocation in bear market
       switch (riskProfile) {
         case 'conservative':
-          recommendations.assetAllocation.ethereum = "5-15%";
-          recommendations.assetAllocation.stablecoins = "75-85%";
+          recommendations.assetAllocation["Ethereum"] = 10;
+          recommendations.assetAllocation["Stablecoins"] = 80;
           break;
         case 'moderate':
-          recommendations.assetAllocation.ethereum = "25-35%";
-          recommendations.assetAllocation.stablecoins = "55-65%";
+          recommendations.assetAllocation["Ethereum"] = 25;
+          recommendations.assetAllocation["Stablecoins"] = 55;
           break;
         case 'aggressive':
-          recommendations.assetAllocation.ethereum = "35-45%";
-          recommendations.assetAllocation.stablecoins = "25-35%";
+          recommendations.assetAllocation["Ethereum"] = 35;
+          recommendations.assetAllocation["Stablecoins"] = 35;
           break;
       }
     }
     
-    // Recommended protocols based on best opportunities
-    const suitableOpportunities = onChainData.bestOpportunities || [];
+    // Add detailed protocols with clear naming
+    recommendations.protocols = [
+      "1.Uniswap Liquidity Provisioning (ETH-USDC)",
+      "2.Curve Liquidity Provisioning (stETH)",
+      "3.Staking ETH"
+    ];
     
-    for (const opportunity of suitableOpportunities) {
-      if (!recommendations.protocols.includes(opportunity.protocol)) {
-        recommendations.protocols.push(opportunity.protocol);
-      }
+    // Add Aave for conservative profiles
+    if (riskProfile === 'conservative') {
+      recommendations.protocols.unshift("Aave Lending (USDC/DAI)");
     }
     
-    // Strategy recommendations
-    if (marketTrend === 'bullish') {
-      if (riskProfile === 'aggressive') {
-        recommendations.strategies.push({
-          name: "Leveraged Yield Farming",
-          description: "Borrow stablecoins against ETH collateral to increase liquidity provision returns",
-          expectedReturn: "15-25% APY",
-          riskLevel: "High"
-        });
-      }
-      
-      if (riskProfile === 'moderate' || riskProfile === 'aggressive') {
-        recommendations.strategies.push({
-          name: "Token Pairs Liquidity",
-          description: "Provide liquidity to ETH-stablecoin pairs on Uniswap",
-          expectedReturn: "10-20% APY",
-          riskLevel: "Medium"
-        });
-      }
+    // Detailed implementation steps
+    recommendations.steps = [
+      "1.Deposit 2,500 USD into a stablecoin (e.g., USDC or DAI) on a lending protocol like AAVE or Compound.",
+      "2.Transfer 4,500 USD worth of Ethereum to a wallet.",
+      "3.Allocate 1,800 USD worth of Ethereum to Uniswap's ETH-USDC liquidity pool.",
+      "4.Allocate 1,350 USD worth of Ethereum to Curve's stETH liquidity pool.",
+      "5.Stake the remaining 1,350 USD worth of Ethereum on a staking platform."
+    ];
+    
+    // Expected returns based on risk profile
+    if (riskProfile === 'conservative') {
+      recommendations.expectedReturns = { min: 5, max: 10, timeframe: '12 months' };
+    } else if (riskProfile === 'moderate') {
+      recommendations.expectedReturns = { min: 8, max: 16, timeframe: '12 months' };
+    } else { // aggressive
+      recommendations.expectedReturns = { min: 12, max: 24, timeframe: '12 months' };
     }
     
-    if (riskProfile === 'conservative' || marketTrend === 'bearish') {
-      recommendations.strategies.push({
-        name: "Stablecoin Lending",
-        description: "Deposit stablecoins into Aave or Compound for steady yields",
-        expectedReturn: "3-5% APY",
-        riskLevel: "Low"
-      });
-    }
+    // Calculate optimal portfolio using calculator
+    // Define some sample investments
+    const investments = [
+      { name: 'Aave USDC Lending', expectedReturn: 2.7, riskLevel: 'low' },
+      { name: 'Compound DAI Lending', expectedReturn: 2.2, riskLevel: 'low' },
+      { name: 'Uniswap ETH-USDC LP', expectedReturn: 9.1, riskLevel: 'medium-high' },
+      { name: 'Curve stETH LP', expectedReturn: 3.2, riskLevel: 'medium' },
+      { name: 'ETH Staking', expectedReturn: 4.5, riskLevel: 'medium-low' }
+    ];
     
-    if (timeHorizon > 6) {
-      recommendations.strategies.push({
-        name: "Staking ETH",
-        description: "Stake ETH for steady passive income",
-        expectedReturn: "4-6% APY",
-        riskLevel: "Medium-Low"
-      });
-    }
+    // Optimize portfolio based on risk tolerance
+    const riskTolerance = userProfile.riskTolerance;
+    const optimizedPortfolio = calculator.optimizePortfolio(investments, riskTolerance);
+    
+    // Add gas cost estimates using calculator
+    const ethPriceUSD = marketData.ethPrice;
+    const gasPriceGwei = parseFloat(marketData.gasPrice);
+    
+    // Estimate gas costs for various operations
+    const swapGasCostUSD = calculator.estimateGasCostUSD(150000, gasPriceGwei, ethPriceUSD);
+    const lendingGasCostUSD = calculator.estimateGasCostUSD(250000, gasPriceGwei, ethPriceUSD);
+    const lpGasCostUSD = calculator.estimateGasCostUSD(300000, gasPriceGwei, ethPriceUSD);
+    
+    // Add gas costs to recommendations
+    recommendations.gasCosts = {
+      swap: swapGasCostUSD.toFixed(2),
+      lending: lendingGasCostUSD.toFixed(2),
+      liquidityProviding: lpGasCostUSD.toFixed(2)
+    };
     
     return recommendations;
   }

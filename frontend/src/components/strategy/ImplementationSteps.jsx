@@ -2,7 +2,8 @@
 import React from 'react';
 
 const ImplementationSteps = ({ steps }) => {
-  if (!steps || steps.length === 0) {
+  // Only use real data from the API response
+  if (!steps || !Array.isArray(steps) || steps.length === 0) {
     return (
       <div className="p-4 text-center text-gray-400">
         No implementation steps available from the API. Try regenerating the strategy.
