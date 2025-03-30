@@ -7,7 +7,7 @@ import { FaEthereum, FaChartLine, FaExchangeAlt, FaGasPump, FaArrowUp, FaArrowDo
 import { getMarketData, getWalletData } from '../services/api';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-
+import ProtocolMetrics from '../components/dashboard/ProtocolMetrics';
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -193,6 +193,9 @@ const Dashboard = () => {
             <Line data={priceChartData} options={chartOptions} />
           </div>
         </div>
+
+        {/* Protocol Metrics */}
+        <ProtocolMetrics protocolData={marketData?.protocolData} />
         
         {/* Additional Data */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
