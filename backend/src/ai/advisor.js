@@ -2,6 +2,7 @@
 const groqClient = require('./groqClient');
 const { createStrategyPrompt } = require('./prompts');
 const ethClient = require('../blockchain/ethClient');
+const contractInteraction = require('../blockchain/contractInteraction');
 const calculator = require('../utils/calculator');
 const { formatStrategyResponse } = require('../utils/formatter');
 
@@ -29,159 +30,242 @@ class DefiAdvisor {
         ethPrice,
         gasPrice,
         marketTrend: marketTrendData,
-        volatility: this._calculateVolatility(protocolData),
-        priceChange1d: this._calculatePriceChange(1, protocolData),
-        priceChange7d: this._calculatePriceChange(7, protocolData),
-        priceChange30d: this._calculatePriceChange(30, protocolData),
-        rsi: this._calculateRSI(protocolData)
+        volatility: this._calculateVolatility(protocolData)
       };
       
-      // Protocol data analysis - use the calculator for advanced metrics
-      const onChainData = {
-        protocolAPYs: this._extractAPYs(protocolData),
-        liquidityData: this._extractLiquidity(protocolData),
-        bestOpportunities: this._findBestOpportunities(protocolData, userProfile),
-        userActivity: walletData.analysis
+      // Get best opportunities based on real protocol data
+      const bestOpportunities = this._findBestRealOpportunities(protocolData, userProfile, marketData);
+      
+      // Generate personalized recommendations using real data
+      const recommendations = this._generatePersonalizedRecommendations(
+        userProfile, 
+        marketData, 
+        protocolData,
+        bestOpportunities
+      );
+      
+      // Format the advice response
+      const adviceResponse = {
+        summary: this._generateSummary(userProfile, marketData, recommendations),
+        allocation: recommendations.assetAllocation,
+        protocols: recommendations.protocols,
+        steps: recommendations.implementationSteps,
+        expectedReturns: recommendations.expectedReturns,
+        risks: this._generateRiskFactors(userProfile, marketData, recommendations),
+        marketInsights: {
+          ethPrice: marketData.ethPrice,
+          gasPrice: marketData.gasPrice,
+          trend: marketData.marketTrend
+        },
+        topOpportunities: bestOpportunities.slice(0, 4),
+        timestamp: new Date().toISOString()
       };
       
-      // Risk-adjusted recommendations
-      const recommendations = this._generateInitialRecommendations(
-        userProfile, 
-        marketData, 
-        onChainData
-      );
-      
-      // Generate prompt for AI with all real data
-      const prompt = createStrategyPrompt(
-        userProfile, 
-        marketData, 
-        onChainData,
-        recommendations
-      );
-      
-      // Get advice from AI
-      const rawAdvice = await groqClient.generateAdvice(prompt);
-      
-      // Format and structure the response
-      return formatStrategyResponse(rawAdvice, {
-        marketData,
-        protocolData: onChainData,
-        recommendations,
-        timestamp: new Date().toISOString(),
-        userProfile: userProfile.getRiskProfile()
-      });
+      return adviceResponse;
     } catch (error) {
       console.error('Error generating advice:', error);
       throw new Error('Failed to generate personalized DeFi advice: ' + error.message);
     }
   }
-
-  // Calculate market volatility from price data
-  _calculateVolatility(protocolData) {
-    try {
-      // Default to a reasonable value if calculation fails
-      return '23.5';
-    } catch (error) {
-      console.error('Error calculating volatility:', error);
-      return null;
+  
+  _generateSummary(userProfile, marketData, recommendations) {
+    const riskProfile = userProfile.getRiskProfile();
+    const timeHorizon = userProfile.timeHorizon;
+    const capitalAmount = userProfile.capital.toLocaleString();
+    const marketTrend = marketData.marketTrend;
+    
+    let summary = `Based on your ${riskProfile} risk profile, ${timeHorizon}-month time horizon, and a capital of $${capitalAmount}, `;
+    
+    if (marketTrend === 'bullish') {
+      summary += `I recommend a strategy that takes advantage of the current bullish market trend. `;
+    } else if (marketTrend === 'bearish') {
+      summary += `I recommend a more conservative approach given the current bearish market conditions. `;
+    } else {
+      summary += `I recommend a balanced approach in the current neutral market. `;
     }
-  }
-
-  // Calculate price change over a period
-  _calculatePriceChange(days, protocolData) {
-    try {
-      // This would typically use historical price data
-      // Returning realistic values based on current market
-      return days === 1 ? '-2.3' : days === 7 ? '5.8' : '-12.4';
-    } catch (error) {
-      console.error(`Error calculating ${days}-day price change:`, error);
-      return null;
+    
+    // Add allocation strategy
+    const stablecoinAllocation = recommendations.assetAllocation['Stablecoins'] || 
+                               recommendations.assetAllocation['stablecoins'] || "40";
+    
+    summary += `This strategy allocates ${stablecoinAllocation}% to stablecoins for capital preservation, `;
+    summary += `while seeking higher yields through diversified DeFi strategies including liquidity provision and staking. `;
+    
+    if (riskProfile === 'aggressive') {
+      summary += `The focus is on maximizing returns through higher-yield opportunities, accepting greater volatility.`;
+    } else if (riskProfile === 'conservative') {
+      summary += `The focus is on capital preservation while still generating yield from lower-risk DeFi protocols.`;
+    } else {
+      summary += `The strategy balances risk and reward across established DeFi protocols.`;
     }
-  }
-
-  // Calculate RSI (Relative Strength Index)
-  _calculateRSI(protocolData) {
-    try {
-      // This would typically use historical price data to calculate RSI
-      return '48.5';
-    } catch (error) {
-      console.error('Error calculating RSI:', error);
-      return null;
-    }
+    
+    return summary;
   }
   
-  _extractAPYs(protocolData) {
-    const apys = {
-      lending: {},
-      liquidity: {}
-    };
+  _findBestRealOpportunities(protocolData, userProfile, marketData) {
+    const opportunities = [];
+    const riskProfile = userProfile.getRiskProfile();
     
-    // Extract Aave lending rates
+    // Add Aave lending opportunities from real data
     if (protocolData.aave) {
-      apys.lending.aave = {};
-      for (const [token, data] of Object.entries(protocolData.aave)) {
-        apys.lending.aave[token] = {
-          supply: data.supplyAPY,
-          borrow: data.borrowAPY,
-          ltv: data.ltv
-        };
-      }
+      Object.entries(protocolData.aave).forEach(([token, data]) => {
+        if (data.supplyAPY) {
+          const riskScore = this._assessProtocolRisk('Aave', token, marketData);
+          opportunities.push({
+            protocol: 'Aave',
+            asset: `${token} Lending`,
+            apy: data.supplyAPY,
+            risk: riskScore,
+            type: 'lending',
+            description: `Earn ${data.supplyAPY.toFixed(2)}% APY by lending ${token} on Aave`
+          });
+        }
+      });
     }
     
-    // Extract Compound lending rates
+    // Add Compound lending opportunities from real data
     if (protocolData.compound) {
-      apys.lending.compound = {};
-      for (const [token, data] of Object.entries(protocolData.compound)) {
-        apys.lending.compound[token] = {
-          supply: data.supplyAPY,
-          borrow: data.borrowAPY,
-          collateralFactor: data.collateralFactor
-        };
-      }
+      Object.entries(protocolData.compound).forEach(([token, data]) => {
+        if (data.supplyAPY) {
+          const riskScore = this._assessProtocolRisk('Compound', token, marketData);
+          opportunities.push({
+            protocol: 'Compound',
+            asset: `${token} Lending`,
+            apy: data.supplyAPY,
+            risk: riskScore,
+            type: 'lending',
+            description: `Earn ${data.supplyAPY.toFixed(2)}% APY by lending ${token} on Compound`
+          });
+        }
+      });
     }
     
-    // Extract Curve pool APYs
-    if (protocolData.curve) {
-      apys.liquidity.curve = protocolData.curve.map(pool => ({
-        name: pool.name,
-        apy: pool.apy
-      }));
+    // Add Uniswap liquidity opportunities from real data
+    if (protocolData.uniswap && Array.isArray(protocolData.uniswap)) {
+      protocolData.uniswap.forEach(pool => {
+        if (pool.name && pool.estimatedAPY) {
+          const riskScore = this._assessProtocolRisk('Uniswap', pool.name, marketData);
+          opportunities.push({
+            protocol: 'Uniswap',
+            asset: pool.name,
+            apy: pool.estimatedAPY,
+            risk: riskScore,
+            type: 'liquidity',
+            description: `Earn approximately ${pool.estimatedAPY.toFixed(2)}% APY by providing liquidity to ${pool.name} pool on Uniswap`
+          });
+        }
+      });
     }
     
-    // Extract Uniswap pool APYs
-    if (protocolData.uniswap) {
-      apys.liquidity.uniswap = protocolData.uniswap.map(pool => ({
-        name: pool.name,
-        apy: pool.estimatedAPY,
-        fee: pool.fee
-      }));
+    // Add Curve liquidity opportunities from real data
+    if (protocolData.curve && Array.isArray(protocolData.curve)) {
+      protocolData.curve.forEach(pool => {
+        if (pool.name && pool.apy) {
+          const riskScore = this._assessProtocolRisk('Curve', pool.name, marketData);
+          opportunities.push({
+            protocol: 'Curve',
+            asset: pool.name,
+            apy: pool.apy,
+            risk: riskScore,
+            type: 'liquidity',
+            description: `Earn approximately ${pool.apy.toFixed(2)}% APY by providing liquidity to ${pool.name} pool on Curve`
+          });
+        }
+      });
     }
     
-    return apys;
+    // Add ETH staking
+    opportunities.push({
+      protocol: 'Staking',
+      asset: 'ETH',
+      apy: 4.5,
+      risk: 3,
+      type: 'staking',
+      description: 'Earn approximately 4-6% APY by staking ETH'
+    });
+    
+    // Sort by risk-adjusted return based on user profile
+    return this._sortOpportunitiesByUserProfile(opportunities, riskProfile);
   }
   
-  _extractLiquidity(protocolData) {
-    const liquidity = {};
+  _sortOpportunitiesByUserProfile(opportunities, riskProfile) {
+    // Make a copy to avoid modifying original
+    const sortedOps = [...opportunities];
     
-    // Extract Uniswap liquidity
-    if (protocolData.uniswap) {
-      liquidity.uniswap = protocolData.uniswap.map(pool => ({
-        name: pool.name,
-        volumeUSD: pool.volumeUSD,
-        liquidity: pool.liquidity
-      }));
+    if (riskProfile === 'conservative') {
+      // Sort by lowest risk first, then APY
+      sortedOps.sort((a, b) => {
+        if (a.risk !== b.risk) return a.risk - b.risk;
+        return b.apy - a.apy;
+      });
+    } else if (riskProfile === 'aggressive') {
+      // Sort by highest APY first, but with some risk consideration
+      sortedOps.sort((a, b) => {
+        // Risk-adjusted return for aggressive profile
+        const aScore = a.apy / (a.risk * 0.5);
+        const bScore = b.apy / (b.risk * 0.5);
+        return bScore - aScore;
+      });
+    } else {
+      // Moderate - balance risk and return
+      sortedOps.sort((a, b) => {
+        // Risk-adjusted return for moderate profile
+        const aScore = a.apy / a.risk;
+        const bScore = b.apy / b.risk;
+        return bScore - aScore;
+      });
     }
     
-    // Extract Curve liquidity
-    if (protocolData.curve) {
-      liquidity.curve = protocolData.curve.map(pool => ({
-        name: pool.name,
-        volume: pool.volume,
-        totalLiquidity: pool.totalLiquidity
-      }));
+    return sortedOps;
+  }
+  
+  _assessProtocolRisk(protocol, asset, marketData) {
+    // Base risk by protocol
+    const baseProtocolRisk = {
+      'Aave': 3,
+      'Compound': 3,
+      'Uniswap': 6,
+      'Curve': 5,
+      'Staking': 2
+    }[protocol] || 5;
+    
+    // Asset risk
+    let assetRisk = 0;
+    if (typeof asset === 'string') {
+      if (asset.includes('USDC') || asset.includes('DAI') || asset.includes('USDT')) {
+        assetRisk = 2;
+      } else if (asset.includes('ETH') || asset.includes('ETH-')) {
+        assetRisk = 4;
+      } else if (asset.includes('BTC') || asset.includes('BTC-')) {
+        assetRisk = 5;
+      } else {
+        assetRisk = 6; // Other assets/altcoins
+      }
     }
     
-    return liquidity;
+    // Adjust risk based on market trend
+    let marketRiskAdjustment = 0;
+    if (marketData.marketTrend === 'bearish') {
+      marketRiskAdjustment = 1; // Higher risk in bear market
+    } else if (marketData.marketTrend === 'bullish') {
+      marketRiskAdjustment = -0.5; // Lower risk in bull market
+    }
+    
+    // For liquidity pools, add impermanent loss risk
+    const impermanentLossRisk = (protocol === 'Uniswap' || protocol === 'Curve') ? 2 : 0;
+    
+    // Calculate final risk score (1-10 scale)
+    const riskScore = Math.max(1, Math.min(10, 
+      Math.round((baseProtocolRisk + assetRisk + marketRiskAdjustment + impermanentLossRisk) / 2)
+    ));
+    
+    return riskScore;
+  }
+  
+  _calculateVolatility(protocolData) {
+    // Simplified estimate of market volatility based on market data
+    // In a real implementation, this would use historical price data
+    return 25; // Percentage volatility estimate
   }
   
   _analyzeWalletActivity(transactions) {
@@ -204,9 +288,8 @@ class DefiAdvisor {
       protocols: new Set()
     };
     
-    // Analyze each transaction
+    // Analyze transaction history
     for (const tx of transactions) {
-      // Count contract interactions
       if (tx.input && tx.input !== '0x') {
         analysis.contractInteractions++;
         
@@ -221,7 +304,6 @@ class DefiAdvisor {
         }
       }
       
-      // Calculate gas spent
       if (tx.gasUsed && tx.gasPrice) {
         const gasEth = (parseInt(tx.gasUsed) * parseInt(tx.gasPrice)) / 10**18;
         analysis.gasSpent += gasEth;
@@ -229,304 +311,320 @@ class DefiAdvisor {
     }
     
     // Build a summary
-    let summary = `${analysis.totalTransactions} transactions found. `;
-    
-    if (analysis.contractInteractions > 0) {
-      summary += `${analysis.contractInteractions} contract interactions including: `;
-      
-      const defiSummary = Object.entries(analysis.defiInteractions)
-        .filter(([_, count]) => count > 0)
-        .map(([protocol, count]) => `${count} with ${protocol}`)
-        .join(', ');
-      
-      summary += defiSummary || "none with known DeFi protocols";
-    }
-    
-    summary += `. Approximately ${analysis.gasSpent.toFixed(4)} ETH spent on gas.`;
-    
-    if (analysis.protocols.size > 0) {
-      summary += ` User has interacted with the following protocols: ${Array.from(analysis.protocols).join(', ')}.`;
-    }
-    
-    return summary;
+    return `${analysis.totalTransactions} transactions found. User has interacted with ${analysis.protocols.size} different DeFi protocols.`;
   }
   
-  _findBestOpportunities(protocolData, userProfile) {
-    const opportunities = [];
+  _generatePersonalizedRecommendations(userProfile, marketData, protocolData, bestOpportunities) {
     const riskProfile = userProfile.getRiskProfile();
+    const capital = userProfile.capital;
+    const timeHorizon = userProfile.timeHorizon;
     
-    // Find best lending opportunities
-    if (protocolData.aave) {
-      for (const [token, data] of Object.entries(protocolData.aave)) {
-        const riskScore = this._assessLendingRisk('aave', token);
-        opportunities.push({
-          type: 'lending',
-          protocol: 'Aave',
-          asset: token,
-          apy: data.supplyAPY,
-          risk: riskScore,
-          suitable: this._isSuitableForRiskProfile(riskScore, riskProfile)
-        });
-      }
+    // Generate asset allocation based on risk profile and market conditions
+    const assetAllocation = this._generateAssetAllocation(riskProfile, marketData.marketTrend);
+    
+    // Generate protocol recommendations using the best real opportunities
+    const protocols = this._generateProtocolRecommendations(bestOpportunities, riskProfile);
+    
+    // Generate implementation steps specific to the user's capital
+    const implementationSteps = this._generateImplementationSteps(capital, assetAllocation, bestOpportunities);
+    
+    // Calculate expected returns based on asset allocation and opportunities
+    const expectedReturns = this._calculateExpectedReturns(assetAllocation, bestOpportunities, timeHorizon);
+    
+    return {
+      assetAllocation,
+      protocols,
+      implementationSteps,
+      expectedReturns
+    };
+  }
+  
+  _generateAssetAllocation(riskProfile, marketTrend) {
+    // Base allocation percentages by risk profile
+    let allocation;
+    
+    if (riskProfile === 'conservative') {
+      allocation = {
+        'Stablecoins': 70,
+        'Ethereum': 20,
+        'Altcoins': 0,
+        'USDC Liquidity Pool': 7,
+        'Curve StETH Liquidity Pool': 3,
+        'Staking ETH': 4
+      };
+    } else if (riskProfile === 'aggressive') {
+      allocation = {
+        'Stablecoins': 25,
+        'Ethereum': 45,
+        'Altcoins': 20,
+        'USDC Liquidity Pool': 9,
+        'Curve StETH Liquidity Pool': 3,
+        'Staking ETH': 5
+      };
+    } else { // moderate
+      allocation = {
+        'Stablecoins': 45,
+        'Ethereum': 30,
+        'Altcoins': 10,
+        'USDC Liquidity Pool': 8,
+        'Curve StETH Liquidity Pool': 2,
+        'Staking ETH': 5
+      };
     }
     
-    if (protocolData.compound) {
-      for (const [token, data] of Object.entries(protocolData.compound)) {
-        const riskScore = this._assessLendingRisk('compound', token);
-        opportunities.push({
-          type: 'lending',
-          protocol: 'Compound',
-          asset: token,
-          apy: data.supplyAPY,
-          risk: riskScore,
-          suitable: this._isSuitableForRiskProfile(riskScore, riskProfile)
-        });
-      }
+    // Adjust based on market trend
+    if (marketTrend === 'bullish') {
+      // In a bull market, shift some allocation from stablecoins to ETH
+      allocation['Ethereum'] += 10;
+      allocation['Stablecoins'] -= 10;
+      allocation['USDC Liquidity Pool'] += 2;
+      allocation['Stablecoins'] -= 2;
+    } else if (marketTrend === 'bearish') {
+      // In a bear market, shift allocation from ETH to stablecoins
+      allocation['Ethereum'] -= 10;
+      allocation['Stablecoins'] += 10;
+      allocation['Altcoins'] -= 5;
+      allocation['Stablecoins'] += 5;
     }
     
-    // Find best liquidity opportunities
-    if (protocolData.uniswap) {
-      for (const pool of protocolData.uniswap) {
-        const riskScore = this._assessLiquidityRisk('uniswap', pool.name);
+    // Ensure no negative values
+    Object.keys(allocation).forEach(key => {
+      allocation[key] = Math.max(0, allocation[key]);
+    });
+    
+    return allocation;
+  }
+  
+  _generateProtocolRecommendations(opportunities, riskProfile) {
+    // Get top opportunities based on risk profile
+    // Conservative: 3-5 lowest risk opportunities
+    // Moderate: 3-5 balanced opportunities
+    // Aggressive: 3-5 highest APY opportunities
+    
+    const topCount = riskProfile === 'aggressive' ? 5 : (riskProfile === 'conservative' ? 3 : 4);
+    
+    // Get unique protocols from top opportunities
+    const topOpportunities = opportunities.slice(0, Math.min(topCount + 3, opportunities.length));
+    const uniqueProtocols = new Set();
+    
+    // Create numbered protocol recommendations
+    const protocolRecs = [];
+    let counter = 1;
+    
+    topOpportunities.forEach(opp => {
+      const protocolKey = `${opp.protocol}:${opp.asset}`;
+      if (!uniqueProtocols.has(protocolKey) && protocolRecs.length < topCount) {
+        uniqueProtocols.add(protocolKey);
         
-        // Use calculator to estimate impermanent loss risk
-        const priceChangeRatio = 1.1; // Assuming 10% price change
-        const impermanentLoss = calculator.calculateImpermanentLoss(priceChangeRatio);
+        // Format protocol recommendation
+        let rec;
+        if (opp.type === 'lending') {
+          rec = `${counter}.${opp.protocol} ${opp.asset}`;
+        } else if (opp.type === 'liquidity') {
+          rec = `${counter}.${opp.protocol} Liquidity Provisioning (${opp.asset})`;
+        } else if (opp.type === 'staking') {
+          rec = `${counter}.Staking ${opp.asset}`;
+        } else {
+          rec = `${counter}.${opp.protocol} ${opp.asset}`;
+        }
         
-        opportunities.push({
-          type: 'liquidity',
-          protocol: 'Uniswap',
-          asset: pool.name,
-          apy: pool.estimatedAPY,
-          impermanentLoss: Math.abs(impermanentLoss * 100).toFixed(2) + '%',
-          risk: riskScore,
-          suitable: this._isSuitableForRiskProfile(riskScore, riskProfile)
-        });
+        protocolRecs.push(rec);
+        counter++;
+      }
+    });
+    
+    return protocolRecs;
+  }
+  
+  _generateImplementationSteps(capital, allocation, opportunities) {
+    // Calculate dollar amounts for each allocation
+    const stablecoinAmount = Math.round((allocation['Stablecoins'] / 100) * capital);
+    const ethAmount = Math.round(((allocation['Ethereum'] || 0) / 100) * capital);
+    
+    // Calculate liquidity and staking amounts
+    const usdcLpAmount = Math.round(((allocation['USDC Liquidity Pool'] || 0) / 100) * capital);
+    const curveLpAmount = Math.round(((allocation['Curve StETH Liquidity Pool'] || 0) / 100) * capital);
+    const stakingAmount = Math.round(((allocation['Staking ETH'] || 0) / 100) * capital);
+    
+    // Generate step-by-step implementation instructions
+    const steps = [];
+    
+    // Add stablecoin step if allocation > 0
+    if (stablecoinAmount > 0) {
+      // Find best stablecoin lending opportunity
+      const stablecoinOpp = opportunities.find(o => 
+        (o.asset.includes('USDC') || o.asset.includes('DAI')) && o.type === 'lending'
+      );
+      
+      if (stablecoinOpp) {
+        steps.push(`1.Deposit ${stablecoinAmount.toLocaleString()} USD into ${stablecoinOpp.asset.split(' ')[0]} on ${stablecoinOpp.protocol} to earn approximately ${stablecoinOpp.apy.toFixed(2)}% APY.`);
+      } else {
+        steps.push(`1.Deposit ${stablecoinAmount.toLocaleString()} USD into a stablecoin (e.g., USDC or DAI) on a lending protocol like AAVE or Compound.`);
       }
     }
     
-    if (protocolData.curve) {
-      for (const pool of protocolData.curve) {
-        const riskScore = this._assessLiquidityRisk('curve', pool.name);
-        opportunities.push({
-          type: 'liquidity',
-          protocol: 'Curve',
-          asset: pool.name,
-          apy: pool.apy,
-          risk: riskScore,
-          suitable: this._isSuitableForRiskProfile(riskScore, riskProfile)
-        });
+    // Add ETH transfer step if needed
+    const remainingEthAmount = ethAmount + usdcLpAmount + curveLpAmount + stakingAmount;
+    if (remainingEthAmount > 0) {
+      steps.push(`2.Transfer ${remainingEthAmount.toLocaleString()} USD worth of Ethereum to a wallet.`);
+    }
+    
+    // Add USDC Liquidity pool step
+    if (usdcLpAmount > 0) {
+      const uniOpp = opportunities.find(o => o.protocol === 'Uniswap' && o.asset.includes('ETH-USDC'));
+      if (uniOpp) {
+        steps.push(`3.Allocate ${usdcLpAmount.toLocaleString()} USD worth of Ethereum to Uniswap's ETH-USDC liquidity pool for an estimated ${uniOpp.apy.toFixed(2)}% APY.`);
+      } else {
+        steps.push(`3.Allocate ${usdcLpAmount.toLocaleString()} USD worth of Ethereum to Uniswap's ETH-USDC liquidity pool.`);
       }
     }
     
-    // Sort by APY and filter for risk suitability
-    const filtered = opportunities
-      .filter(opp => opp.suitable)
-      .sort((a, b) => b.apy - a.apy);
-    
-    return filtered.slice(0, 5); // Top 5 opportunities
-  }
-  
-  _assessLendingRisk(protocol, token) {
-    // Risk assessment based on protocol and token
-    const baseRisk = {
-      'aave': 3,
-      'compound': 4
-    }[protocol.toLowerCase()] || 5;
-    
-    const tokenRisk = {
-      'DAI': 2,
-      'USDC': 2,
-      'USDT': 3,
-      'ETH': 5,
-      'WETH': 5,
-      'WBTC': 6
-    }[token] || 7;
-    
-    return Math.min(10, Math.max(1, Math.floor((baseRisk + tokenRisk) / 2)));
-  }
-  
-  _assessLiquidityRisk(protocol, poolName) {
-    // Risk assessment for liquidity pools
-    const baseRisk = {
-      'uniswap': 6,
-      'curve': 5
-    }[protocol.toLowerCase()] || 7;
-    
-    // Assess by tokens in pool
-    let tokenRisk = 5;
-    if (poolName.includes('ETH') && poolName.includes('USDC')) {
-      tokenRisk = 6;
-    } else if (poolName.includes('USDC') && poolName.includes('USDT')) {
-      tokenRisk = 4;
-    } else if (poolName.includes('stETH')) {
-      tokenRisk = 7;
+    // Add Curve liquidity pool step
+    if (curveLpAmount > 0) {
+      const curveOpp = opportunities.find(o => o.protocol === 'Curve' && o.asset.includes('stETH'));
+      if (curveOpp) {
+        steps.push(`4.Allocate ${curveLpAmount.toLocaleString()} USD worth of Ethereum to Curve's stETH liquidity pool for an estimated ${curveOpp.apy.toFixed(2)}% APY.`);
+      } else {
+        steps.push(`4.Allocate ${curveLpAmount.toLocaleString()} USD worth of Ethereum to Curve's stETH liquidity pool.`);
+      }
     }
     
-    return Math.min(10, Math.max(1, Math.floor((baseRisk + tokenRisk) / 2)));
-  }
-  
-  _isSuitableForRiskProfile(riskScore, profileType) {
-    switch (profileType.toLowerCase()) {
-      case 'conservative':
-        return riskScore <= 4;
-      case 'moderate':
-        return riskScore >= 3 && riskScore <= 7;
-      case 'aggressive':
-        return riskScore >= 5;
-      default:
-        return true;
+    // Add staking step
+    if (stakingAmount > 0) {
+      steps.push(`5.Stake the remaining ${stakingAmount.toLocaleString()} USD worth of Ethereum on a staking platform for 4-6% APY.`);
     }
+    
+    return steps;
   }
   
-  _generateInitialRecommendations(userProfile, marketData, onChainData) {
-    const recommendations = {
-      assetAllocation: {},
-      protocols: [],
-      steps: [],
-      expectedReturns: { min: 8, max: 16, timeframe: '12 months' },
-      risks: [
-        "Market volatility may affect ETH price and impact overall returns",
-        "Smart contract risk associated with protocol interactions",
-        "Impermanent loss risk when providing liquidity in volatile markets",
-        "Regulatory changes could impact DeFi platforms and strategies"
-      ]
+  _calculateExpectedReturns(allocation, opportunities, timeHorizonMonths) {
+    // Calculate expected returns based on allocation percentages and opportunity APYs
+    let weightedReturnMin = 0;
+    let weightedReturnMax = 0;
+    
+    // Map allocation keys to opportunity types
+    const allocationMap = {
+      'Stablecoins': { type: 'lending', keywords: ['USDC', 'DAI', 'USDT'] },
+      'USDC Liquidity Pool': { type: 'liquidity', keywords: ['USDC', 'ETH-USDC'] },
+      'Curve StETH Liquidity Pool': { type: 'liquidity', keywords: ['stETH'] },
+      'Staking ETH': { type: 'staking', keywords: ['ETH'] },
+      'Ethereum': { type: 'hodl', keywords: ['ETH'] },
+      'Altcoins': { type: 'hodl', keywords: ['altcoin'] }
     };
     
+    // Calculate weighted returns
+    Object.entries(allocation).forEach(([allocKey, percentage]) => {
+      if (allocationMap[allocKey]) {
+        const map = allocationMap[allocKey];
+        
+        // Find matching opportunity
+        const matchingOpp = opportunities.find(o => 
+          o.type === map.type && map.keywords.some(kw => o.asset.includes(kw))
+        );
+        
+        // Default values if no matching opportunity
+        let returnMin = 0;
+        let returnMax = 0;
+        
+        if (matchingOpp) {
+          // Use the APY from the matching opportunity with some variability
+          returnMin = Math.max(0, matchingOpp.apy * 0.8);
+          returnMax = matchingOpp.apy * 1.2;
+        } else if (map.type === 'hodl') {
+          // For hodl (Ethereum/altcoins), use different returns based on asset
+          if (allocKey === 'Ethereum') {
+            returnMin = 5;
+            returnMax = 20;
+          } else if (allocKey === 'Altcoins') {
+            returnMin = 0;
+            returnMax = 30;
+          }
+        } else if (map.type === 'staking') {
+          returnMin = 4;
+          returnMax = 6;
+        } else if (map.type === 'lending') {
+          returnMin = 2;
+          returnMax = 5;
+        } else if (map.type === 'liquidity') {
+          returnMin = 3;
+          returnMax = 10;
+        }
+        
+        // Add weighted return to total
+        weightedReturnMin += (percentage / 100) * returnMin;
+        weightedReturnMax += (percentage / 100) * returnMax;
+      }
+    });
+    
+    // Round to 1 decimal place
+    weightedReturnMin = Math.round(weightedReturnMin * 10) / 10;
+    weightedReturnMax = Math.round(weightedReturnMax * 10) / 10;
+    
+    return {
+      min: weightedReturnMin,
+      max: weightedReturnMax,
+      timeframe: `${timeHorizonMonths} months`
+    };
+  }
+  
+  _generateRiskFactors(userProfile, marketData, recommendations) {
     const riskProfile = userProfile.getRiskProfile();
-    const timeHorizon = userProfile.timeHorizon;
     const marketTrend = marketData.marketTrend;
     
-    // Asset allocation based on risk profile and market trend
-    switch (riskProfile) {
-      case 'conservative':
-        recommendations.assetAllocation = {
-          "Stablecoins": 70,
-          "Ethereum": 15,
-          "Altcoins": 5,
-          "USDC Liquidity Pool": 9,
-          "Curve StETH Liquidity Pool": 3,
-          "Staking ETH": "4-6"
-        };
-        break;
-      case 'moderate':
-        recommendations.assetAllocation = {
-          "Stablecoins": 50,
-          "Ethereum": 30,
-          "Altcoins": 10,
-          "USDC Liquidity Pool": 6,
-          "Curve StETH Liquidity Pool": 2,
-          "Staking ETH": "4-6"
-        };
-        break;
-      case 'aggressive':
-        recommendations.assetAllocation = {
-          "Stablecoins": 25,
-          "Ethereum": 45,
-          "Altcoins": 30,
-          "USDC Liquidity Pool": 9,
-          "Curve StETH Liquidity Pool": 3,
-          "Staking ETH": "4-6"
-        };
-        break;
-    }
-    
-    // Adjust for market trend
-    if (marketTrend === 'bullish') {
-      // Increase crypto allocation in bull market
-      switch (riskProfile) {
-        case 'conservative':
-          recommendations.assetAllocation["Ethereum"] = 25;
-          recommendations.assetAllocation["Stablecoins"] = 65;
-          break;
-        case 'moderate':
-          recommendations.assetAllocation["Ethereum"] = 40;
-          recommendations.assetAllocation["Stablecoins"] = 35;
-          break;
-        case 'aggressive':
-          recommendations.assetAllocation["Ethereum"] = 50;
-          recommendations.assetAllocation["Stablecoins"] = 20;
-          break;
-      }
-    } else if (marketTrend === 'bearish') {
-      // Increase stablecoin allocation in bear market
-      switch (riskProfile) {
-        case 'conservative':
-          recommendations.assetAllocation["Ethereum"] = 10;
-          recommendations.assetAllocation["Stablecoins"] = 80;
-          break;
-        case 'moderate':
-          recommendations.assetAllocation["Ethereum"] = 25;
-          recommendations.assetAllocation["Stablecoins"] = 55;
-          break;
-        case 'aggressive':
-          recommendations.assetAllocation["Ethereum"] = 35;
-          recommendations.assetAllocation["Stablecoins"] = 35;
-          break;
-      }
-    }
-    
-    // Add detailed protocols with clear naming
-    recommendations.protocols = [
-      "1.Uniswap Liquidity Provisioning (ETH-USDC)",
-      "2.Curve Liquidity Provisioning (stETH)",
-      "3.Staking ETH"
+    // Common risks for all profiles
+    const commonRisks = [
+      "Smart contract risk associated with protocol interactions",
+      "Regulatory changes could impact DeFi platforms and strategies"
     ];
     
-    // Add Aave for conservative profiles
+    // Specific risks based on allocation and market conditions
+    const specificRisks = [];
+    
+    // Market trend-specific risks
+    if (marketTrend === 'bearish') {
+      specificRisks.push("Market volatility risk with potential for further ETH price declines");
+    } else if (marketTrend === 'bullish') {
+      specificRisks.push("Risk of market correction after extended bullish trend");
+    } else {
+      specificRisks.push("Market volatility may affect ETH price and impact overall returns");
+    }
+    
+    // Allocation-specific risks
+    if (recommendations.assetAllocation['USDC Liquidity Pool'] > 0 || 
+        recommendations.assetAllocation['Curve StETH Liquidity Pool'] > 0) {
+      specificRisks.push("Impermanent loss risk when providing liquidity in volatile markets");
+    }
+    
+    if (recommendations.assetAllocation['Ethereum'] > 30) {
+      specificRisks.push("Higher exposure to ETH price volatility due to allocation percentage");
+    }
+    
+    if (recommendations.assetAllocation['Altcoins'] > 0) {
+      specificRisks.push("Altcoin investments carry higher volatility and potential for significant drawdowns");
+    }
+    
+    if (recommendations.assetAllocation['Staking ETH'] > 0) {
+      specificRisks.push("Staked ETH may have lock-up periods limiting liquidity");
+    }
+    
+    // Add or remove risks based on risk profile
     if (riskProfile === 'conservative') {
-      recommendations.protocols.unshift("Aave Lending (USDC/DAI)");
+      // For conservative profiles, add more caution about even small risks
+      specificRisks.push("Even modest allocation to volatile assets could experience temporary drawdowns");
+    } else if (riskProfile === 'aggressive') {
+      // For aggressive profiles, add risk about concentration
+      specificRisks.push("Higher allocation to growth assets increases portfolio volatility");
     }
     
-    // Detailed implementation steps
-    recommendations.steps = [
-      "1.Deposit 2,500 USD into a stablecoin (e.g., USDC or DAI) on a lending protocol like AAVE or Compound.",
-      "2.Transfer 4,500 USD worth of Ethereum to a wallet.",
-      "3.Allocate 1,800 USD worth of Ethereum to Uniswap's ETH-USDC liquidity pool.",
-      "4.Allocate 1,350 USD worth of Ethereum to Curve's stETH liquidity pool.",
-      "5.Stake the remaining 1,350 USD worth of Ethereum on a staking platform."
-    ];
+    // Combine risks, ensure no duplicates
+    const allRisks = [...commonRisks];
+    specificRisks.forEach(risk => {
+      if (!allRisks.includes(risk)) {
+        allRisks.push(risk);
+      }
+    });
     
-    // Expected returns based on risk profile
-    if (riskProfile === 'conservative') {
-      recommendations.expectedReturns = { min: 5, max: 10, timeframe: '12 months' };
-    } else if (riskProfile === 'moderate') {
-      recommendations.expectedReturns = { min: 8, max: 16, timeframe: '12 months' };
-    } else { // aggressive
-      recommendations.expectedReturns = { min: 12, max: 24, timeframe: '12 months' };
-    }
-    
-    // Calculate optimal portfolio using calculator
-    // Define some sample investments
-    const investments = [
-      { name: 'Aave USDC Lending', expectedReturn: 2.7, riskLevel: 'low' },
-      { name: 'Compound DAI Lending', expectedReturn: 2.2, riskLevel: 'low' },
-      { name: 'Uniswap ETH-USDC LP', expectedReturn: 9.1, riskLevel: 'medium-high' },
-      { name: 'Curve stETH LP', expectedReturn: 3.2, riskLevel: 'medium' },
-      { name: 'ETH Staking', expectedReturn: 4.5, riskLevel: 'medium-low' }
-    ];
-    
-    // Optimize portfolio based on risk tolerance
-    const riskTolerance = userProfile.riskTolerance;
-    const optimizedPortfolio = calculator.optimizePortfolio(investments, riskTolerance);
-    
-    // Add gas cost estimates using calculator
-    const ethPriceUSD = marketData.ethPrice;
-    const gasPriceGwei = parseFloat(marketData.gasPrice);
-    
-    // Estimate gas costs for various operations
-    const swapGasCostUSD = calculator.estimateGasCostUSD(150000, gasPriceGwei, ethPriceUSD);
-    const lendingGasCostUSD = calculator.estimateGasCostUSD(250000, gasPriceGwei, ethPriceUSD);
-    const lpGasCostUSD = calculator.estimateGasCostUSD(300000, gasPriceGwei, ethPriceUSD);
-    
-    // Add gas costs to recommendations
-    recommendations.gasCosts = {
-      swap: swapGasCostUSD.toFixed(2),
-      lending: lendingGasCostUSD.toFixed(2),
-      liquidityProviding: lpGasCostUSD.toFixed(2)
-    };
-    
-    return recommendations;
+    return allRisks;
   }
 }
 
