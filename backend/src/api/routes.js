@@ -56,6 +56,7 @@ const contractInteraction = require('../blockchain/contractInteraction');
  */
 router.post('/advice', async (req, res) => {
   try {
+    console.log('Received advice request:', req.body);
     const { riskTolerance, timeHorizon, capital, experience, walletAddress } = req.body;
     
     // Validate user profile data
@@ -68,6 +69,7 @@ router.post('/advice', async (req, res) => {
     
     // Generate personalized advice
     const advice = await advisor.generatePersonalizedAdvice(userProfile, walletAddress);
+    console.log('Successfully generated advice');
     
     res.json({ success: true, advice });
   } catch (error) {
@@ -109,26 +111,27 @@ router.post('/advice', async (req, res) => {
  *       500:
  *         description: Server error
  */
-// In backend/src/api/routes.js - modify the /market route handler
 router.get('/market', async (req, res) => {
   try {
+    console.log('Fetching market data...');
     const ethPrice = await ethClient.getEthPrice();
-    const gasPrice = await ethClient.getGasPrice();
-    const marketTrendData = await ethClient.getMarketTrend();
-    const protocolData = await ethClient.getAllProtocolData();
+    console.log(`ETH Price: $${ethPrice}`);
     
-    // Extract just the trend string instead of sending the whole object
-    const marketTrend = typeof marketTrendData === 'object' && marketTrendData.trend 
-      ? marketTrendData.trend 
-      : 'neutral';
+    const gasPrice = await ethClient.getGasPrice();
+    console.log(`Gas Price: ${gasPrice} gwei`);
+    
+    const marketTrend = await ethClient.getMarketTrend();
+    console.log(`Market Trend: ${marketTrend}`);
+    
+    const protocolData = await ethClient.getAllProtocolData();
+    console.log('Protocol data fetched successfully');
     
     res.json({
       success: true,
       data: {
         ethPrice,
         gasPrice,
-        marketTrend, // Now this is just a string
-        marketDetails: marketTrendData, // Full data in a separate field
+        marketTrend, // Now returns a string directly
         protocolData
       }
     });
@@ -177,6 +180,7 @@ router.get('/market', async (req, res) => {
 router.get('/wallet/:address', async (req, res) => {
   try {
     const { address } = req.params;
+    console.log(`Fetching wallet data for ${address}...`);
     
     if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
       return res.status(400).json({
@@ -186,12 +190,26 @@ router.get('/wallet/:address', async (req, res) => {
     }
     
     const history = await ethClient.getWalletHistory(address);
-    const balances = await contractInteraction.getTokenBalances(address, {
-      DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-      USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-      USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-      WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
-    });
+    console.log(`Fetched ${history.length} transaction history items`);
+    
+    let balances = {};
+    try {
+      balances = await contractInteraction.getTokenBalances(address, {
+        DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+        USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+      });
+      console.log('Fetched token balances successfully');
+    } catch (balanceError) {
+      console.error('Error fetching token balances:', balanceError);
+      balances = {
+        DAI: { formatted: '0', raw: '0' },
+        USDC: { formatted: '0', raw: '0' },
+        USDT: { formatted: '0', raw: '0' },
+        WETH: { formatted: '0', raw: '0' }
+      };
+    }
     
     res.json({
       success: true,
@@ -204,7 +222,12 @@ router.get('/wallet/:address', async (req, res) => {
     console.error('Wallet data error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch wallet data'
+      error: error.message || 'Failed to fetch wallet data',
+      // Return empty data structure to prevent frontend errors
+      data: {
+        history: [],
+        balances: {}
+      }
     });
   }
 });
@@ -250,6 +273,7 @@ router.get('/wallet/:address', async (req, res) => {
 router.post('/simulate', async (req, res) => {
   try {
     const { type, params } = req.body;
+    console.log(`Simulating ${type} operation with params:`, params);
     
     if (!type || !params) {
       return res.status(400).json({
@@ -297,6 +321,7 @@ router.post('/simulate', async (req, res) => {
         throw new Error(`Unsupported simulation type: ${type}`);
     }
     
+    console.log('Simulation completed successfully:', result);
     res.json({
       success: true,
       data: result
@@ -333,7 +358,9 @@ router.post('/simulate', async (req, res) => {
  */
 router.get('/protocols', async (req, res) => {
   try {
+    console.log('Fetching protocol data...');
     const protocolData = await ethClient.getAllProtocolData();
+    console.log('Protocol data fetched successfully');
     
     res.json({
       success: true,
