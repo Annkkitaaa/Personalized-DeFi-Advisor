@@ -81,6 +81,20 @@ const StrategyCard = ({ marketData }) => {
         <FaShieldAlt className="text-cyber-blue mr-2" />
         <span>Recommended Strategy</span>
       </h2>
+
+      <div className="mt-4 border-t border-white border-opacity-10 pt-4">
+        <div className="flex items-center mb-2">
+          <FaRobot className="text-cyber-yellow mr-2" />
+          <h3 className="font-cyber text-sm">Smart Contract Integration</h3>
+        </div>
+        <p className="text-gray-300 text-sm mb-3">
+          Interact directly with DeFi protocols through secure smart contract simulation.
+        </p>
+        <Link to="/strategy" className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center transition-colors">
+          <span>Explore smart contract options</span>
+          <FaArrowRight className="ml-2" />
+        </Link>
+      </div>
       
       <div className="glass-panel p-4 mb-4">
         <div className="flex justify-between items-start mb-3">

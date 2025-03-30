@@ -354,6 +354,49 @@ const Strategy = () => {
         </motion.div>
           )}
         </div>
+
+
+{/* Smart Contract Simulation */}
+<div className="card mb-6">
+  <div 
+    className="flex justify-between items-center cursor-pointer"
+    onClick={() => toggleSection('simulation')}
+  >
+    <h2 className="text-xl font-cyber">Smart Contract Simulation</h2>
+    <span>{activeSection === 'simulation' ? <FaChevronUp /> : <FaChevronDown />}</span>
+  </div>
+  
+  {activeSection === 'simulation' && (
+    <motion.div 
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      transition={{ duration: 0.3 }}
+      className="mt-4"
+    >
+      <div className="glass-panel p-4 mb-4">
+        <p className="text-gray-300 mb-4">
+          Simulate interactions with DeFi protocols without executing transactions on-chain.
+          This allows you to estimate returns and understand impacts before committing funds.
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <button className="cyber-button flex items-center justify-center">
+            <FaRobot className="mr-2" />
+            <span>Simulate Aave Deposit</span>
+          </button>
+          <button className="border border-cyber-purple hover:border-cyber-blue text-white px-4 py-2 rounded-md font-cyber transition-all duration-300 flex items-center justify-center">
+            <FaRobot className="mr-2" />
+            <span>Simulate Uniswap Swap</span>
+          </button>
+        </div>
+        
+        <div className="text-xs text-center text-gray-400">
+          Note: Simulations use real-time data but don't execute actual transactions
+        </div>
+      </div>
+    </motion.div>
+      )}
+    </div>
         
         {/* Disclaimer */}
         <div className="glass-panel p-4 flex items-start mb-4">

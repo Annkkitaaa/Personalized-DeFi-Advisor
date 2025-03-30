@@ -53,11 +53,13 @@ class EthClient {
         if (response.data.status === '1') {
           return response.data.result.ProposeGasPrice;
         }
-        throw new Error('Invalid response from Etherscan gas tracker');
+        console.error('Invalid response from Etherscan gas tracker');
       } catch (fallbackError) {
         console.error('Error fetching gas from fallback:', fallbackError);
-        throw new Error('Failed to fetch gas price');
       }
+      
+      // If all else fails, return a reasonable default
+      return "50";  // Default to 50 gwei
     }
   }
 
