@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useWallet } from '../contexts/WalletContext';
 import { useUserProfile } from '../contexts/UserProfileContext';
 import { getAdvice } from '../services/api';
-import { FaChevronUp, FaChevronDown, FaExclamationCircle, FaCheckCircle, FaEthereum, FaWallet } from 'react-icons/fa';
+import { FaChevronUp, FaChevronDown, FaExclamationCircle, FaCheckCircle, FaEthereum, FaWallet, FaRobot  } from 'react-icons/fa';
 
 const Strategy = () => {
   const { address } = useWallet();

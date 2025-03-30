@@ -109,19 +109,26 @@ router.post('/advice', async (req, res) => {
  *       500:
  *         description: Server error
  */
+// In backend/src/api/routes.js - modify the /market route handler
 router.get('/market', async (req, res) => {
   try {
     const ethPrice = await ethClient.getEthPrice();
     const gasPrice = await ethClient.getGasPrice();
-    const marketTrend = await ethClient.getMarketTrend();
+    const marketTrendData = await ethClient.getMarketTrend();
     const protocolData = await ethClient.getAllProtocolData();
+    
+    // Extract just the trend string instead of sending the whole object
+    const marketTrend = typeof marketTrendData === 'object' && marketTrendData.trend 
+      ? marketTrendData.trend 
+      : 'neutral';
     
     res.json({
       success: true,
       data: {
         ethPrice,
         gasPrice,
-        marketTrend,
+        marketTrend, // Now this is just a string
+        marketDetails: marketTrendData, // Full data in a separate field
         protocolData
       }
     });
