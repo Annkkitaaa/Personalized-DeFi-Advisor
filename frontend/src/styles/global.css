@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-dark-bg text-white font-body;
+  background-image: radial-gradient(circle at 50% 50%, rgba(38, 99, 255, 0.1) 0%, rgba(13, 2, 33, 0) 100%);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-cyber;
+}
+
+.neon-border {
+  @apply border border-cyber-blue shadow-neon;
+}
+
+.neon-pink-border {
+  @apply border border-cyber-pink shadow-neon-pink;
+}
+
+.card {
+  @apply bg-card-bg bg-opacity-80 backdrop-blur-sm rounded-lg p-6;
+}
+
+.cyber-button {
+  @apply font-cyber uppercase text-white bg-cyber-purple hover:bg-cyber-blue hover:text-cyber-black transition-all duration-300 px-6 py-3 rounded-md tracking-wider font-bold;
+}
+
+.input-cyber {
+  @apply bg-cyber-black bg-opacity-60 border border-cyber-purple focus:border-cyber-blue text-white px-4 py-2 rounded-md focus:outline-none focus:ring-1 focus:ring-cyber-blue;
+}
+
+.glass-panel {
+  @apply rounded-xl bg-white bg-opacity-5 backdrop-blur-lg border border-white border-opacity-10;
+}
+
+.glow-text {
+  text-shadow: 0 0 5px currentColor;
+}
+
+/* Grid background */
+.cyber-grid {
+  background-size: 50px 50px;
+  background-image: linear-gradient(to right, rgba(45, 226, 230, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(45, 226, 230, 0.1) 1px, transparent 1px);
+  z-index: -1;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-cyber-black;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-cyber-purple rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-cyber-blue;
+}
