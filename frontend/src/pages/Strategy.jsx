@@ -5,6 +5,8 @@ import { useWallet } from '../contexts/WalletContext';
 import { useUserProfile } from '../contexts/UserProfileContext';
 import { getAdvice } from '../services/api';
 import { FaChevronUp, FaChevronDown, FaExclamationCircle, FaCheckCircle, FaEthereum, FaWallet, FaRobot  } from 'react-icons/fa';
+import StrategySimulator from '../components/strategy/StrategySimulator';
+
 
 const Strategy = () => {
   const { address } = useWallet();
@@ -100,6 +102,11 @@ const Strategy = () => {
             }>{riskProfile}</span></span>
           </div>
         </div>
+        {/* Strategy Simulator */}
+        <div className="mb-6">
+          <StrategySimulator marketData={advice.marketInsights} />
+        </div>
+
         
         {/* Summary Card */}
         <div className="card mb-6">

@@ -9,6 +9,7 @@ import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import ProtocolMetrics from '../components/dashboard/ProtocolMetrics';
 import GasTracker from '../components/dashboard/GasTracker';
+import ProtocolAlerts from '../components/dashboard/ProtocolAlerts';
 
 
 // Register Chart.js components
@@ -199,6 +200,9 @@ const Dashboard = () => {
 
         {/* Protocol Metrics */}
         <ProtocolMetrics protocolData={marketData?.protocolData} />
+
+        {/* Protocol Alerts */}
+        <ProtocolAlerts protocolData={marketData} />
         
         {/* Additional Data */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
