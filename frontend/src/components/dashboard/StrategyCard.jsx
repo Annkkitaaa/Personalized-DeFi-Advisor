@@ -8,7 +8,7 @@ const StrategyCard = ({ marketData }) => {
 
   // Get strategy recommendation based on risk profile and market trend
   const getStrategyRecommendation = () => {
-    const marketTrend = marketData?.marketTrend || 'neutral';
+    const marketTrend = marketData?.marketTrend?.trend?.trend  || 'neutral';
     
     if (riskProfile === 'conservative') {
       if (marketTrend === 'bearish') {
@@ -111,6 +111,7 @@ const StrategyCard = ({ marketData }) => {
             <span>Full Strategy</span>
             <FaArrowRight className="ml-1" />
           </Link>
+
         </div>
       </div>
       
@@ -119,11 +120,11 @@ const StrategyCard = ({ marketData }) => {
           <FaChartLine className="mr-2 text-cyber-blue" />
           <span>Based on current market trend: </span>
           <span className={`ml-1 font-bold ${
-            marketData?.marketTrend === 'bullish' ? 'text-green-500' : 
-            marketData?.marketTrend === 'bearish' ? 'text-red-500' : 
+            marketData?.marketTrend?.trend?.trend?.trend === 'bullish' ? 'text-green-500' : 
+            marketData?.marketTrend?.trend?.trend === 'bearish' ? 'text-red-500' : 
             'text-yellow-500'
           }`}>
-            {marketData?.marketTrend || 'neutral'}
+            {marketData?.marketTrend?.trend?.trend || 'neutral'}
           </span>
         </div>
         <Link to="/strategy" className="text-xs font-cyber px-3 py-1 border border-cyber-purple hover:border-cyber-blue rounded-md transition-colors">

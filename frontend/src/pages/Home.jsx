@@ -36,21 +36,27 @@ const Home = () => {
       
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 md:mb-24">
-        <FeatureCard 
-          icon={<FaRocket className="text-cyber-pink" size={36} />}
-          title="Intelligent Analysis"
-          description="Our AI analyzes real-time blockchain data to identify the most profitable opportunities across DeFi protocols."
-        />
-        <FeatureCard 
-          icon={<FaShieldAlt className="text-cyber-blue" size={36} />}
-          title="Risk Assessment"
-          description="Personalized risk evaluation ensures strategies match your comfort level and investment goals."
-        />
-        <FeatureCard 
-          icon={<FaRobot className="text-cyber-yellow" size={36} />}
-          title="Smart Contracts"
-          description="Seamlessly interact with DeFi protocols through our secure smart contract integration."
-        />
+        <Link to="/dashboard">
+          <FeatureCard 
+            icon={<FaRocket className="text-cyber-pink" size={36} />}
+            title="Intelligent Analysis"
+            description="Our AI analyzes real-time blockchain data to identify the most profitable opportunities across DeFi protocols."
+          />
+        </Link>
+        <Link to="/#riskprofile">
+          <FeatureCard 
+            icon={<FaShieldAlt className="text-cyber-blue" size={36} />}
+            title="Risk Assessment"
+            description="Personalized risk evaluation ensures strategies match your comfort level and investment goals."
+          />
+        </Link>
+        <Link to="/strategy">
+          <FeatureCard 
+            icon={<FaRobot className="text-cyber-yellow" size={36} />}
+            title="Smart Contracts"
+            description="Seamlessly interact with DeFi protocols through our secure smart contract integration."
+          />
+        </Link>
       </div>
       
       {/* Risk Profile Section */}
@@ -84,7 +90,7 @@ const Home = () => {
 
 const FeatureCard = ({ icon, title, description }) => (
   <motion.div 
-    className="card border border-white border-opacity-10 hover:border-cyber-blue transition-all duration-300"
+    className="card border border-white border-opacity-10 hover:border-cyber-blue transition-all duration-300 cursor-pointer h-full"
     whileHover={{ y: -5, boxShadow: '0 10px 30px -10px rgba(45, 226, 230, 0.2)' }}
   >
     <div className="mb-4">{icon}</div>

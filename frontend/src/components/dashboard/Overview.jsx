@@ -52,7 +52,7 @@ const Overview = ({ marketData }) => {
         <div className="glass-panel p-3">
           <div className="text-gray-400 text-xs mb-1">Market Trend</div>
           <div className={`text-lg font-bold capitalize ${getMarketTrendColor()}`}>
-            {marketData.marketTrend || 'neutral'}
+            {marketData.marketTrend?.trend || 'neutral'}
           </div>
         </div>
         
