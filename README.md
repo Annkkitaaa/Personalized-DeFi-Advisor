@@ -141,44 +141,6 @@ npm run build
 npx netlify deploy --prod
 ```
 
-#### Backend Deployment
-
-The backend cannot be directly deployed to Netlify (which is primarily for static sites), but you can use:
-
-1. **Netlify Functions** (for smaller, serverless applications)
-   - Convert key endpoints to serverless functions in the `/netlify/functions` directory
-   - Limited to 10-second execution time (may not be sufficient for blockchain operations)
-
-2. **Alternative Backend Hosting**
-   - Heroku: Free tier available, easy deployment with Git
-   - Railway: Developer-friendly platform with free tier
-   - Render: Free tier for web services
-   - Fly.io: Generous free tier, runs close to users
-
-For production deployment, modify the frontend's `.env` file to point to your deployed backend URL.
-
-### Free Hosting Options for Backend
-
-1. **Render**
-   - Create a new Web Service
-   - Connect your GitHub repository
-   - Select the backend directory
-   - Set the build command: `npm install`
-   - Set the start command: `npm start`
-   - Add your environment variables
-
-2. **Railway**
-   - Deploy from GitHub repository
-   - Navigate to the backend folder
-   - Add environment variables
-   - Deployment will automatically start
-
-3. **Fly.io**
-   - Install the flyctl CLI
-   - Run `fly launch` in the backend directory
-   - Configure environment variables using `fly secrets set`
-   - Deploy with `fly deploy`
-
 ## How It Works
 
 ### User Flow
