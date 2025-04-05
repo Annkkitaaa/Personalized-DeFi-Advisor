@@ -72,7 +72,7 @@ The application follows a client-server architecture:
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/personalized-defi-advisor.git
+git clone https://github.com/Annkkitaaa/personalized-defi-advisor.git
 cd personalized-defi-advisor
 ```
 
