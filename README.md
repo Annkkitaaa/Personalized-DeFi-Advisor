@@ -2,7 +2,8 @@
 
 A comprehensive DeFi advisory platform that provides personalized strategy recommendations based on real-time blockchain data, user risk profiles, and current market conditions.
 
-![DeFi Advisor Dashboard](https://example.com/dashboard-preview.png)
+![image](https://github.com/user-attachments/assets/f79f160e-7ff1-4ac3-811d-17add1a61e89)
+
 
 ## Table of Contents
 
