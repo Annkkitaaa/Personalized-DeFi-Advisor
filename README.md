@@ -4,6 +4,8 @@ A comprehensive DeFi advisory platform that provides personalized strategy recom
 
 ![image](https://github.com/user-attachments/assets/f79f160e-7ff1-4ac3-811d-17add1a61e89)
 
+Live link: https://personalized-defi-advisor.vercel.app/
+
 
 ## Table of Contents
 
