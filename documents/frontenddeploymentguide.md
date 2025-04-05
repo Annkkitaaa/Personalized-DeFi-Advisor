@@ -169,22 +169,4 @@ Add to your vercel.json:
    
 3. **Consider using Web3Modal** for better wallet connection UX
 
-## Monitoring and Analytics
 
-1. **Use Vercel Analytics** for performance monitoring
-2. **Monitor performance** with Lighthouse or WebPageTest
-3. **Set up error tracking** with Sentry or similar services
-
-## Troubleshooting Common Issues
-
-1. **404 errors when refreshing routes**: This should be fixed by the route configuration in vercel.json
-2. **Environment variables not working**: Make sure they're prefixed with REACT_APP_ for Create React App projects
-3. **Build failures**: Check the build logs in the Vercel dashboard for specific errors
-4. **CORS issues**: Ensure your backend has proper CORS headers for your Vercel domain
-
-## Going Further
-
-1. **Use Preview Deployments** for testing new features before merging to main
-2. **Integrate with Vercel Functions** for lightweight serverless backends
-3. **Set up A/B testing** with different preview deployments
-4. **Utilize Vercel Edge Functions** for region-specific functionality
